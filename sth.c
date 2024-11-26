@@ -4,11 +4,7 @@
 #include "util.h"
 
 #define MAX_INPUT_SHADERS 32
-#define USAGE \
-"Usage\e[37m:      \e[32mstch \e[35m-o \e[0;97m[\e[3;37mheader.h \e[0;97m] \
-[\e[3;37mfile1\e[37m \e[37mfile2\e[37m ... \e[37mfileN\e[0;97m]\e[0m\n\
-Example\e[37m:    \e[32mstch \e[35m-o \e[3;37mshaders.h vertex.glsl \
-fragment.glsl\e[0m\n"
+#define USAGE "Usage\e[37m:      \e[32msth \e[35m-o \e[0;97m[\e[3;37mheader.h\e[0;97m] [\e[3;37mfile1\e[37m \e[37mfile2\e[37m ... \e[37mfileN\e[0;97m]\e[0m\nExample\e[37m:    \e[32msth \e[35m-o \e[3;37mshaders.h vertex.glsl fragment.glsl\e[0m\n"
 
 static char *output, *input[MAX_INPUT_SHADERS];
 static FILE *output_fp, *input_fp;

@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,7 +18,7 @@ main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 
-	static FILE *input_files[64];
+	static char *input_files[64];
 	char *output_filename = NULL;
 	for (int i = 1; argv[i] != NULL; i++)
 	{
@@ -32,8 +33,8 @@ main(int argc, char *argv[])
 		}
 		else
 		{
-			static FILE **current_infile = input_files;
-			*current_infile = fopen(argv[i], "r");
+			static char **current_infile = input_files;
+			*current_infile = argv[i];
 			current_infile++;
 		}
 	}
@@ -41,45 +42,72 @@ main(int argc, char *argv[])
 	if (input_files[0] == NULL) {
 		printf("u didn't put any input files, there, bud...\n");
 		exit(EXIT_FAILURE);
+	} else if (output_filename == NULL) {
+		printf("u know u need to put an output file... right?\n");
+		exit(EXIT_FAILURE);
 	}
 
 	/* Generate header protection string (capslock filename) */
-	char *headername = strdup(output);
-	for (int i = 0; headername[i] != '\0'; i++) {
-		char c = headername[i];
-		c &= 0b11011111;
+	char *header_protection = strdup(output_filename);
+	for (int i = 0; header_protection[i] != '\0'; i++) {
+		char c = header_protection[i];
+		c &= 0b11011111; /* make uppercase */
 		if (c < 'A' || c > 'Z') {
-			headername[i] = '_'; /* set non-alphabetical characters to '_' */
+			header_protection[i] = '_'; /* set non-alphabetical characters to '_' */
 			continue;
 		}
-		headername[i] &= 0b11011111; /* make uppercase */
+		header_protection[i] = c;
 	}
 
 	/* Generate header file */
-	FILE *output_fp = fopen(output, "w");
-	fprintf(output_fp, "#ifndef %s\n#define %s\n\n", headername, headername);
+	FILE *output_fp = fopen(output_filename, "w");
+	fprintf(output_fp, "#ifndef %s\n#define %s\n\n", header_protection, header_protection);
 
 	for (int i = 0; input_files[i] != NULL; i++)
 	{
 		/* Make 'strname' appropriate for a c variable name */
-		char *strname = strdup(input[i]);
+		char *strname = strdup(input_files[i]);
 		for (int j = 0; strname[j] != '\0'; j++) {
 			char c = strname[j];
-			c &= 0b11011111;
-			if (c < 'A' || c > 'Z') {
+			c |= 0b00100000; /* make lowercase */
+			if (c < 'a' || c > 'z') {
 				strname[j] = '_'; /* set non-alphabetical characters to '_' */
 				continue;
 			}
-			strname[i] |= 0b00100000; /* make lowercase */
+			strname[i] = c;
 		}
+
+		/* Write variable name to output file */
+		fprintf(output_fp, "static const char *%s = \"\\\n", strname);
+
+		/* Open file */
+		FILE *input_fp = fopen(input_files[i], "r");
+
+		/* Copy contents of input file into output file line by line */
+		char *line = NULL;
+		size_t len = 0;
+		int getline_result;
+		errno = 0;
+		while ((getline_result = getline(&line, &len, input_fp)) > 0) {
+			line[getline_result - 1] = '\\';
+			fprintf(output_fp, line);
+			putc('\n', output_fp);
+			free(line);
+			line = NULL;
+		}
+
+		fclose(input_fp);
+		if (errno > 0) {
+			fprintf(stderr, "something went wrong\n");
+			exit(EXIT_FAILURE);
+		}
+
+		/* Close string definition */
+		fprintf(output_fp, "\";\n\n");
 	}
 
 	fprintf(output_fp, "#endif");
 	fclose(output_fp);
 
-	/* Close all input files */
-	for (int i = 0; input_files[i] != NULL; i++)
-		fclose(input_files[i]);
-	
 	return 0;
 }

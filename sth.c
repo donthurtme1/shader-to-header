@@ -66,19 +66,29 @@ main(int argc, char *argv[])
 	for (int i = 0; input_files[i] != NULL; i++)
 	{
 		/* Make 'strname' appropriate for a c variable name */
-		char *strname = strdup(input_files[i]);
-		for (int j = 0; strname[j] != '\0'; j++) {
-			char c = strname[j];
-			c |= 0b00100000; /* make lowercase */
-			if (c < 'a' || c > 'z') {
-				strname[j] = '_'; /* set non-alphabetical characters to '_' */
+		char *lower_fname = strdup(input_files[i]);
+		for (char *c = lower_fname; *c != '\0'; c++)
+		{
+			if (*c == '.') {
+				*c = '\0';
+				break;
+			} else if ((*c | 0x20) < 'a' || (*c | 0x20) > 'z') {
+				*c = '_';
 				continue;
 			}
-			strname[i] = c;
+
+			*c |= 0x20;
 		}
 
+		char *var_name = malloc(sizeof("sth_" "_src") + strlen(lower_fname) - 1);
+		strncpy(var_name, "sth_", 4);
+		strncpy(&var_name[4], lower_fname, strlen(lower_fname));
+		strncpy(&var_name[4 + strlen(lower_fname)], "_src", 5);
+
 		/* Write variable name to output file */
-		fprintf(output_fp, "static const char *%s = \"\\\n", strname);
+		fprintf(output_fp, "static const char *%s = \"\\\n", var_name);
+		free(var_name);
+		free(lower_fname);
 
 		/* Open file */
 		FILE *input_fp = fopen(input_files[i], "r");
@@ -89,9 +99,9 @@ main(int argc, char *argv[])
 		int getline_result;
 		errno = 0;
 		while ((getline_result = getline(&line, &len, input_fp)) > 0) {
-			line[getline_result - 1] = '\\';
+			line[getline_result - 1] = '\0';
 			fprintf(output_fp, line);
-			putc('\n', output_fp);
+			fwrite("\\n\\\n", sizeof(char), 4, output_fp);
 			free(line);
 			line = NULL;
 		}
